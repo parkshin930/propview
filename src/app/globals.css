@@ -1,0 +1,136 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 98.4%;
+  --foreground: 220 3% 25%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 3% 25%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 3% 25%;
+  --primary: 18 70% 53%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 2% 60%;
+  --secondary-foreground: 220 3% 25%;
+  --muted: 220 5% 91%;
+  --muted-foreground: 220 3% 60%;
+  --accent: 154 48% 55%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 5% 84%;
+  --input: 220 5% 84%;
+  --ring: 18 70% 53%;
+  --radius: 0.5rem;
+
+  /* Custom PropView colors */
+  --coinness-orange: #dd6231;
+  --coinness-orange-light: #e1974e;
+  --coinness-green: #52c68f;
+  --coinness-text: #434346;
+  --coinness-text-secondary: #98999b;
+  --coinness-bg: #fbfbfb;
+  --coinness-border: #cacdd0;
+  --coinness-highlight: #f7d29e;
+  --header-border: #f0f0f0;
+  --brand-charcoal: #222222;
+  --logo-deep-mint: #2d9d78;
+}
+
+.dark {
+  /* 고급 네이비: 배경 #0B1120, 카드 #111827 */
+  --background: 222 49% 8%;
+  --foreground: 0 0% 96%;
+  --card: 221 39% 11%;
+  --card-foreground: 0 0% 96%;
+  --popover: 221 39% 11%;
+  --popover-foreground: 0 0% 96%;
+  --primary: 18 70% 53%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 20% 18%;
+  --secondary-foreground: 0 0% 96%;
+  --muted: 220 20% 15%;
+  --muted-foreground: 220 5% 65%;
+  --accent: 154 48% 55%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 25% 16%;
+  --input: 220 25% 16%;
+  --ring: 18 70% 53%;
+  /* 다크 모드 상승/하락 네온 컬러 */
+  --up: 142 76% 56%;
+  --down: 346 87% 61%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+  }
+  .dark body {
+    @apply text-gray-100;
+  }
+}
+
+.dark .text-up {
+  color: hsl(var(--up));
+}
+.dark .text-down {
+  color: hsl(var(--down));
+}
+.dark .bg-card-deep {
+  background-color: #111827;
+}
+.dark .bg-bg-deep {
+  background-color: #0B1120;
+}
+
+/* Hide scrollbar for ticker etc. */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Timeline line */
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: 47px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: hsl(var(--border));
+}
+
+.timeline-item:last-child::before {
+  display: none;
+}
