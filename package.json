@@ -6,8 +6,8 @@
     "node": ">=18.17.0"
   },
   "scripts": {
-    "dev": "next dev -H 0.0.0.0",
-    "dev:turbo": "next dev -H 0.0.0.0 --turbopack",
+    "dev": "next dev",
+    "dev:turbo": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "bunx tsc --noEmit && next lint",

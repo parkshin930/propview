@@ -108,11 +108,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, fetchProfile]);
 
   const signInWithGoogle = useCallback(async () => {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_SITE_URL.length > 0
+        ? process.env.NEXT_PUBLIC_SITE_URL
+        : typeof window !== "undefined"
+          ? window.location.origin
+          : "";
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${baseUrl}/auth/callback`,
           queryParams: {
             access_type: "offline",
             prompt: "consent",
@@ -148,12 +154,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   const signUpWithEmail = useCallback(async (email: string, password: string) => {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_SITE_URL.length > 0
+        ? process.env.NEXT_PUBLIC_SITE_URL
+        : typeof window !== "undefined"
+          ? window.location.origin
+          : "";
     try {
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${baseUrl}/auth/callback`,
         },
       });
 
@@ -168,6 +180,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   const signOut = useCallback(async () => {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_SITE_URL.length > 0
+        ? process.env.NEXT_PUBLIC_SITE_URL
+        : typeof window !== "undefined"
+          ? window.location.origin
+          : "/";
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
@@ -177,6 +195,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setProfile(null);
       setSession(null);
+      if (typeof window !== "undefined") {
+        window.location.href = baseUrl;
+      }
     } catch (error) {
       console.error("로그아웃 실패:", error);
       throw error;
