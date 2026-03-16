@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { getURL } from "@/lib/url";
 import type { User, Session } from "@supabase/supabase-js";
 import type { Profile } from "@/types/database";
 
@@ -108,12 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, fetchProfile]);
 
   const signInWithGoogle = useCallback(async () => {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_SITE_URL.length > 0
-        ? process.env.NEXT_PUBLIC_SITE_URL
-        : typeof window !== "undefined"
-          ? window.location.origin
-          : "";
+    const baseUrl = getURL();
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -154,12 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   const signUpWithEmail = useCallback(async (email: string, password: string) => {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_SITE_URL.length > 0
-        ? process.env.NEXT_PUBLIC_SITE_URL
-        : typeof window !== "undefined"
-          ? window.location.origin
-          : "";
+    const baseUrl = getURL();
     try {
       const { error } = await supabase.auth.signUp({
         email,
@@ -180,12 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   const signOut = useCallback(async () => {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_SITE_URL.length > 0
-        ? process.env.NEXT_PUBLIC_SITE_URL
-        : typeof window !== "undefined"
-          ? window.location.origin
-          : "/";
+    const baseUrl = getURL() || "/";
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
