@@ -50,19 +50,33 @@ export function PropPricingCard({
           onSelect();
         }
       }}
-      className={`w-full rounded-2xl border-2 bg-white p-6 text-left shadow-lg transition duration-200 hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
-        isSelected ? "border-green-500" : "border-gray-100 hover:border-gray-200"
-      } cursor-pointer`}
+      className={`w-full rounded-2xl border-2 bg-white p-6 text-left shadow-lg transition duration-200 hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 cursor-pointer dark:bg-gray-900 dark:border-gray-700 ${
+        isSelected
+          ? "border-green-500 dark:border-green-500"
+          : "border-gray-100 hover:border-gray-200 dark:border-gray-700 dark:hover:border-gray-500"
+      }`}
     >
-      {/* 헤더: 로고 자리 + 제목 */}
+      {/* 헤더: 로고 + 제목 */}
       <div className="mb-4 flex items-start gap-4">
-        <div className="h-14 w-14 shrink-0 rounded-full bg-gray-100" aria-hidden />
-        <div>
-          <h3 className="text-xl font-bold text-foreground">{title}</h3>
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        <div className="h-14 w-14 shrink-0 flex items-center justify-center rounded-full bg-white border border-gray-200 overflow-hidden dark:bg-gray-800 dark:border-gray-600" aria-hidden>
+          <img
+            src={id === "mubite" ? "/images/mubite-logo.png" : "/images/propw-logo.png"}
+            alt={id === "mubite" ? "무바이트" : "PROP W"}
+            className="h-10 w-10 object-contain"
+            width={40}
+            height={40}
+          />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-xl font-bold text-foreground dark:text-gray-100">{title}</h3>
+          </div>
+          <p className="text-sm text-muted-foreground dark:text-gray-300">{subtitle}</p>
           <span
             className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-medium ${
-              badgeGreen ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+              badgeGreen
+                ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200"
             }`}
           >
             {badge}
@@ -73,8 +87,8 @@ export function PropPricingCard({
       {/* 스펙 리스트 */}
       <ul className="mb-6 space-y-3">
         {specs.map((item, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm text-foreground">
-            <CheckCircle className="h-5 w-5 shrink-0 text-green-500" aria-hidden />
+          <li key={i} className="flex items-start gap-2 text-sm text-foreground dark:text-gray-100">
+            <CheckCircle className="h-5 w-5 shrink-0 text-green-500 dark:text-green-400" aria-hidden />
             <span>{item.text}</span>
           </li>
         ))}

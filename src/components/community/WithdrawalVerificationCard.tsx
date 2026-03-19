@@ -34,6 +34,7 @@ export function WithdrawalVerificationCard({
   const isPending = post.category === "profit" && post.approval_status === "pending";
   const showApproveButton = isPending && isAdminProp && onApprove;
   const showCrown = user && post.user_id === user.id;
+  const showVerified = !!post.profiles?.is_verified;
 
   return (
     <article
@@ -79,6 +80,7 @@ export function WithdrawalVerificationCard({
             <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
               <Crown className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden />
               <span className="truncate flex items-center gap-0.5">
+                {showVerified && <span className="shrink-0" aria-label="출금 인증">🔰</span>}
                 {nickname}
                 {showCrown && <span className="shrink-0" aria-label="마스터">👑</span>}
               </span>

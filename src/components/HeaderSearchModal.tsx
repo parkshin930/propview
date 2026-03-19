@@ -3,15 +3,49 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { Post } from "@/types/database";
+import type { Post, Notice, Guide } from "@/types/database";
 import { Search, X } from "lucide-react";
 
-const CATEGORY_LABEL: Record<string, string> = {
+const POST_CATEGORY_LABEL: Record<string, string> = {
   analysis: "매매일지",
   profit: "출금 인증",
   free: "자유글",
   question: "질문",
 };
+
+type SearchResultItem =
+  | {
+      kind: "post";
+      id: string;
+      title: string;
+      category: Post["category"];
+    }
+  | {
+      kind: "notice";
+      id: number;
+      title: string;
+    }
+  | {
+      kind: "guide";
+      id: number;
+      title: string;
+    };
+
+function getBadgeLabel(item: SearchResultItem): string {
+  if (item.kind === "post") {
+    return POST_CATEGORY_LABEL[item.category] || item.category;
+  }
+  if (item.kind === "notice") return "공지";
+  if (item.kind === "guide") return "가이드";
+  return "";
+}
+
+function getTargetHref(item: SearchResultItem): string {
+  if (item.kind === "post") return `/community/${item.id}`;
+  if (item.kind === "notice") return `/notice/${item.id}`;
+  if (item.kind === "guide") return `/guide/${item.id}`;
+  return "/";
+}
 
 interface HeaderSearchModalProps {
   open: boolean;
@@ -21,7 +55,7 @@ interface HeaderSearchModalProps {
 export function HeaderSearchModal({ open, onClose }: HeaderSearchModalProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Post[]>([]);
+  const [results, setResults] = useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const supabase = createClient();
 
@@ -34,19 +68,58 @@ export function HeaderSearchModal({ open, onClose }: HeaderSearchModalProps) {
       }
       setIsSearching(true);
       try {
-        const { data, error } = await supabase
-          .from("posts")
-          .select("id, title, content, category, created_at")
-          .or(`title.ilike.%${trimmed}%,content.ilike.%${trimmed}%`)
-          .order("created_at", { ascending: false })
-          .limit(20);
+        const [postsRes, noticesRes, guidesRes] = await Promise.all([
+          supabase
+            .from("posts")
+            .select("id, title, content, category")
+            .or(`title.ilike.%${trimmed}%,content.ilike.%${trimmed}%`)
+            .order("created_at", { ascending: false })
+            .limit(15),
+          supabase
+            .from("notices")
+            .select("id, title, content")
+            .or(`title.ilike.%${trimmed}%,content.ilike.%${trimmed}%`)
+            .order("created_at", { ascending: false })
+            .limit(10),
+          supabase
+            .from("guides")
+            .select("id, title, body")
+            .or(`title.ilike.%${trimmed}%,body.ilike.%${trimmed}%`)
+            .order("created_at", { ascending: false })
+            .limit(10),
+        ]);
 
-        if (error) {
-          console.error("Search error:", error);
+        if (postsRes.error || noticesRes.error || guidesRes.error) {
+          console.error("Search error:", postsRes.error, noticesRes.error, guidesRes.error);
           setResults([]);
           return;
         }
-        setResults((data as Post[]) || []);
+
+        const postItems: SearchResultItem[] =
+          (postsRes.data as (Pick<Post, "id" | "title" | "category"> & { content?: string })[] | null)?.map(
+            (p) => ({
+              kind: "post",
+              id: p.id,
+              title: p.title,
+              category: p.category,
+            })
+          ) ?? [];
+
+        const noticeItems: SearchResultItem[] =
+          (noticesRes.data as (Pick<Notice, "id" | "title"> & { content?: string })[] | null)?.map((n) => ({
+            kind: "notice",
+            id: n.id,
+            title: n.title,
+          })) ?? [];
+
+        const guideItems: SearchResultItem[] =
+          (guidesRes.data as (Pick<Guide, "id" | "title"> & { body?: string })[] | null)?.map((g) => ({
+            kind: "guide",
+            id: g.id,
+            title: g.title,
+          })) ?? [];
+
+        setResults([...postItems, ...noticeItems, ...guideItems]);
       } finally {
         setIsSearching(false);
       }
@@ -110,21 +183,21 @@ export function HeaderSearchModal({ open, onClose }: HeaderSearchModalProps) {
           )}
           {!isSearching && results.length > 0 && (
             <ul className="py-2">
-              {results.map((post) => (
-                <li key={post.id}>
+              {results.map((item) => (
+                <li key={`${item.kind}-${item.id}`}>
                   <button
                     type="button"
                     onClick={() => {
                       onClose();
-                      router.push(`/community/${post.id}`);
+                      router.push(getTargetHref(item));
                     }}
                     className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex items-baseline gap-2"
                   >
                     <span className="shrink-0 text-xs font-medium text-blue-600 dark:text-blue-400">
-                      [{CATEGORY_LABEL[post.category] || post.category}]
+                      [{getBadgeLabel(item)}]
                     </span>
                     <span className="truncate text-sm text-foreground">
-                      {post.title}
+                      {item.title}
                     </span>
                   </button>
                 </li>

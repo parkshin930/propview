@@ -18,7 +18,6 @@ export function createClient() {
       "⚠️ Supabase 환경 변수가 설정되지 않았습니다.\n" +
       ".env.local 파일을 만들고 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 설정하세요."
     );
-    // 개발 중에는 더미 클라이언트 반환 (에러 방지)
     return createBrowserClient(
       "https://placeholder.supabase.co",
       "placeholder-key"

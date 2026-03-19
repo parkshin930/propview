@@ -12,7 +12,8 @@
     "start": "next start",
     "lint": "bunx tsc --noEmit && next lint",
     "format": "bunx biome format --write",
-    "logo:transparent": "node scripts/make-logo-transparent.mjs"
+    "logo:transparent": "node scripts/make-logo-transparent.mjs",
+    "favicon:transparent": "node scripts/make-favicon-transparent.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -25,6 +26,7 @@
     "date-fns": "^4.1.0",
     "lucide-react": "^0.475.0",
     "next": "15.3.7",
+    "next-intl": "^4.8.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-grab": "latest",

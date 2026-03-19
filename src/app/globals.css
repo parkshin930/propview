@@ -92,6 +92,14 @@
   background-color: #0B1120;
 }
 
+/* Logo: 다크모드에서 밝은 회색으로 대비, 라이트모드에서 짙은 회색 유지 */
+.logo-theme-contrast {
+  transition: filter 0.2s ease;
+}
+.dark .logo-theme-contrast {
+  filter: invert(1) brightness(1.08);
+}
+
 /* Hide scrollbar for ticker etc. */
 .scrollbar-none {
   scrollbar-width: none;

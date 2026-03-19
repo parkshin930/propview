@@ -1,10 +1,11 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getURL } from "@/lib/url";
 import type { User, Session } from "@supabase/supabase-js";
 import type { Profile } from "@/types/database";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 
 interface AuthContextType {
   user: User | null;
@@ -35,32 +36,170 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const supabase = useMemo(() => createClient(), []);
 
-  // 프로필 가져오기
-  const fetchProfile = useCallback(async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
+  const profileFetchInFlight = useRef(false);
+  const profileFetchPromise = useRef<Promise<Profile | null> | null>(null);
+  const profileFailCount = useRef(0);
+  const profileCooldownUntil = useRef<number>(0);
+  const lastProfileLogAt = useRef<number>(0);
+  const ensuredProfileForUser = useRef<Set<string>>(new Set());
 
-      if (error) {
-        console.error("프로필 조회 에러:", error);
-        return null;
-      }
-      return data as Profile;
-    } catch (error) {
-      console.error("프로필 조회 실패:", error);
-      return null;
+  const getErrorMessage = useCallback((err: unknown): string => {
+    if (!err) return "Unknown error";
+    if (typeof err === "string") return err;
+    if (typeof err === "object" && "message" in err) {
+      const m = (err as { message?: unknown }).message;
+      if (typeof m === "string") return m;
     }
-  }, [supabase]);
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return "Unknown error";
+    }
+  }, []);
+
+  const normalizeProfile = useCallback((p: Record<string, unknown>): Profile => {
+    // DB 스키마 변화(point vs points) 등에 대비해 최소한의 정규화만 수행
+    const next: Record<string, unknown> = { ...p };
+    if (typeof next.points === "undefined" && typeof next.point === "number") {
+      next.points = next.point;
+    }
+    if (typeof next.point === "undefined" && typeof next.points === "number") {
+      next.point = next.points;
+    }
+    if (typeof next.credits === "undefined" && typeof next.credit === "number") {
+      next.credits = next.credit;
+    }
+    if (typeof next.credit === "undefined" && typeof next.credits === "number") {
+      next.credit = next.credits;
+    }
+    return next as Profile;
+  }, []);
+
+  // 프로필 가져오기
+  const fetchProfile = useCallback(
+    async (userId: string, opts?: { force?: boolean }) => {
+      if (profileFetchInFlight.current && profileFetchPromise.current) {
+        return await profileFetchPromise.current;
+      }
+      const now = Date.now();
+      if (!opts?.force && profileCooldownUntil.current > now) return null;
+
+      profileFetchInFlight.current = true;
+      const run = (async () => {
+        try {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", userId)
+            .single();
+
+          // 프로필이 "없는" 케이스: 유령 회원 방어 (trigger 이전 가입자 등)
+          // PostgREST: .single()에서 row 없음은 error로 들어오는 경우가 있음(PGRST116 등)
+          const maybeNoRow =
+            !data &&
+            !!error &&
+            (String((error as { code?: string })?.code ?? "").toUpperCase() === "PGRST116" ||
+              String((error as { message?: string })?.message ?? "")
+                .toLowerCase()
+                .includes("0 rows"));
+
+          if (maybeNoRow && !ensuredProfileForUser.current.has(userId)) {
+            ensuredProfileForUser.current.add(userId);
+            try {
+              const bootstrapProfile: Record<string, unknown> = {
+                id: userId,
+                role: "user",
+                // 스키마가 point/points 중 무엇이든 안전하게 채우기
+                points: 0,
+                point: 0,
+                credits: 0,
+                credit: 0,
+              };
+
+              const { error: upsertError } = await supabase
+                .from("profiles")
+                .upsert(bootstrapProfile, { onConflict: "id" });
+
+              if (upsertError) {
+                const nowLog = Date.now();
+                if (nowLog - lastProfileLogAt.current > 5000) {
+                  console.warn("프로필 부트스트랩 upsert 실패(경고):", upsertError);
+                  lastProfileLogAt.current = nowLog;
+                }
+              } else {
+                // upsert 성공 → 다시 조회
+                const { data: refetched, error: refetchError } = await supabase
+                  .from("profiles")
+                  .select("*")
+                  .eq("id", userId)
+                  .single();
+                if (!refetchError && refetched) {
+                  profileFailCount.current = 0;
+                  profileCooldownUntil.current = 0;
+                  setProfileError(null);
+                  return normalizeProfile(refetched as Record<string, unknown>);
+                }
+              }
+            } catch (e) {
+              const nowLog = Date.now();
+              if (nowLog - lastProfileLogAt.current > 5000) {
+                console.warn("프로필 부트스트랩 예외(경고):", e);
+                lastProfileLogAt.current = nowLog;
+              }
+            }
+          }
+
+          if (error) {
+            // 프로필 조회 실패는 앱 크래시 사유가 아니므로 error 레벨로 스팸을 남기지 않음
+            const nowLog = Date.now();
+            if (nowLog - lastProfileLogAt.current > 5000) {
+              console.warn("프로필 조회 실패(경고):", error);
+              lastProfileLogAt.current = nowLog;
+            }
+            profileFailCount.current += 1;
+            setProfileError(getErrorMessage(error));
+            // 간단 백오프: 연속 실패 시 잠깐 쿨다운 (무한 재시도/렉 방지)
+            if (profileFailCount.current >= 3) {
+              profileCooldownUntil.current = Date.now() + 15_000;
+            }
+            return null;
+          }
+          profileFailCount.current = 0;
+          profileCooldownUntil.current = 0;
+          setProfileError(null);
+          return normalizeProfile((data ?? {}) as Record<string, unknown>);
+        } catch (error) {
+          const nowLog = Date.now();
+          if (nowLog - lastProfileLogAt.current > 5000) {
+            console.warn("프로필 조회 예외(경고):", error);
+            lastProfileLogAt.current = nowLog;
+          }
+          profileFailCount.current += 1;
+          setProfileError(getErrorMessage(error));
+          if (profileFailCount.current >= 3) {
+            profileCooldownUntil.current = Date.now() + 15_000;
+          }
+          return null;
+        } finally {
+          profileFetchInFlight.current = false;
+          profileFetchPromise.current = null;
+        }
+      })();
+
+      profileFetchPromise.current = run;
+      return await run;
+    },
+    [supabase, normalizeProfile, getErrorMessage]
+  );
 
   const refreshProfile = useCallback(async () => {
     if (!user) return;
-    const next = await fetchProfile(user.id);
+    // 보상/적립 직후에는 항상 강제 재조회 (cooldown 무시)
+    const next = await fetchProfile(user.id, { force: true });
     if (next) setProfile(next);
   }, [user, fetchProfile]);
 
@@ -97,6 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (isMounted) setProfile(nextProfile);
         } else {
           setProfile(null);
+          setProfileError(null);
         }
         setIsLoading(false);
       }
@@ -215,7 +355,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      <AppErrorBoundary
+        fallback={
+          <div className="min-h-[40vh] flex items-center justify-center px-6 py-12">
+            <div className="w-full max-w-md rounded-2xl border border-border bg-background p-6 text-center shadow-sm">
+              <p className="text-sm font-semibold text-foreground">일시적인 오류가 발생했습니다.</p>
+              {profileError && (
+                <p className="mt-2 text-xs text-muted-foreground break-words">
+                  프로필 로딩 오류: {profileError}
+                </p>
+              )}
+              <button
+                type="button"
+                className="mt-4 inline-flex h-9 items-center justify-center rounded-md bg-[#52c68f] px-4 text-sm font-semibold text-white hover:bg-[#45b07d]"
+                onClick={() => window.location.reload()}
+              >
+                새로고침
+              </button>
+            </div>
+          </div>
+        }
+      >
+        {children}
+      </AppErrorBoundary>
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

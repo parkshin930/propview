@@ -55,14 +55,18 @@ export default function AdminPage() {
     }
     const { data: targetProfile } = await supabase
       .from("profiles")
-      .select("credits")
+      .select("credits, credit")
       .eq("id", targetId)
       .single();
-    const current = (targetProfile?.credits ?? 0) - amount;
+    const currentCredits =
+      (targetProfile as { credits?: number; credit?: number } | null)?.credits ??
+      (targetProfile as { credits?: number; credit?: number } | null)?.credit ??
+      0;
+    const current = currentCredits - amount;
     const newCredits = Math.max(0, current);
     const { error } = await supabase
       .from("profiles")
-      .update({ credits: newCredits })
+      .update({ credits: newCredits, credit: newCredits })
       .eq("id", targetId);
     setSubmitting(false);
     if (error) {

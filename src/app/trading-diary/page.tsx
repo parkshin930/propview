@@ -5,11 +5,18 @@ import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import { useAuth } from "@/components/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
-import { loadLocalEntries, consumeDiaryRefetch, type DiaryEntryItem } from "@/lib/diary-storage";
+import { consumeDiaryRefetch, type DiaryEntryItem } from "@/lib/diary-storage";
 import { DiaryDetailModal } from "@/components/diary/DiaryDetailModal";
-import { Clock, PenSquare } from "lucide-react";
+import { Clock, PenSquare, ArrowUpDown, Check } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function toListItem(row: { id: string; title: string; created_at: string; [k: string]: unknown }): DiaryEntryItem {
   return {
@@ -34,38 +41,45 @@ export default function TradingDiaryPage() {
   const [entries, setEntries] = useState<DiaryEntryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEntry, setSelectedEntry] = useState<DiaryEntryItem | null>(null);
+  const [sortBy, setSortBy] = useState<"latest" | "oldest">("latest");
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 15;
 
   const fetchEntries = useCallback(async () => {
     setIsLoading(true);
     try {
-      const local = loadLocalEntries();
       if (!user) {
-        setEntries(local.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-        setIsLoading(false);
+        setEntries([]);
+        setTotalCount(0);
         return;
       }
       const client = createClient();
-      const { data: rows, error } = await client
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data: rows, error, count } = await client
         .from("trading_diary")
-        .select("id, title, symbol, position, entry, tp, sl, profit, mistake, principle, tags, created_at, user_id")
+        .select(
+          "id, title, symbol, position, entry, tp, sl, profit, mistake, principle, tags, created_at, user_id",
+          { count: "exact" }
+        )
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(100);
+        .order("created_at", { ascending: sortBy === "oldest" })
+        .range(from, to);
       if (error) {
         console.error("[매매일지 목록] DB 조회 실패:", error.message, error.code, error.details);
       }
       const fromDb = (rows || []).map(toListItem);
-      const merged = [...fromDb];
-      const localIds = new Set(fromDb.map((e) => e.id));
-      local.forEach((e) => {
-        if (!localIds.has(e.id)) merged.push(e);
-      });
-      merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setEntries(merged);
+      setEntries(fromDb);
+      setTotalCount(count ?? 0);
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, sortBy, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [sortBy]);
 
   useEffect(() => {
     fetchEntries();
@@ -74,6 +88,8 @@ export default function TradingDiaryPage() {
   useEffect(() => {
     if (consumeDiaryRefetch()) fetchEntries();
   }, [fetchEntries]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -94,15 +110,66 @@ export default function TradingDiaryPage() {
                 글쓰기
               </Link>
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="gap-1"
-            >
-              <Clock className="h-4 w-4" />
-              최신순
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="gap-1 border border-gray-200 bg-white text-xs font-medium shadow-sm hover:bg-gray-50"
+                >
+                  <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                  {sortBy === "latest" ? "최신순" : "오래된순"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-32 border border-gray-200 bg-white shadow-md"
+              >
+                <DropdownMenuItem
+                  className="flex items-center gap-2 text-xs"
+                  onClick={() => setSortBy("latest")}
+                >
+                  {sortBy === "latest" ? (
+                    <Check className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <span className="w-3" />
+                  )}
+                  <span className={sortBy === "latest" ? "font-semibold" : ""}>
+                    최신순
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="flex items-center gap-2 text-xs"
+                  onClick={() => setSortBy("oldest")}
+                >
+                  {sortBy === "oldest" ? (
+                    <Check className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <span className="w-3" />
+                  )}
+                  <span className={sortBy === "oldest" ? "font-semibold" : ""}>
+                    오래된순
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
+        </div>
+
+        {/* 포인트 / 어뷰징 방지 안내 */}
+        <div className="mb-6 rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-xs leading-relaxed text-yellow-900">
+          <p className="mb-1 font-semibold">
+            ⚠️ 매매일지 포인트 지급 및 어뷰징 안내
+          </p>
+          <p>
+            포인트 지급: 매매일지 작성 시 포인트는 하루 딱 1개까지만 지급됩니다. (중복 작성은 가능하지만 추가 포인트는 없습니다)
+          </p>
+          <p className="mt-1">
+            어뷰징 경고: 무분별한 도배나 악용이 적발될 경우 포인트 회수 및 게시글 삭제 대상입니다.
+          </p>
+          <p className="mt-2 text-[11px] text-yellow-800">
+            정성스러운 매매일지는 본인의 실력 향상에도 큰 도움이 됩니다. 건강한 커뮤니티를 위해 함께 노력해 주세요!
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -121,7 +188,7 @@ export default function TradingDiaryPage() {
             ))
           ) : entries.length === 0 ? (
             <div className="col-span-full py-12 text-center">
-              <p className="text-muted-foreground">아직 매매일지 글이 없습니다.</p>
+              <p className="text-muted-foreground">오늘의 매매를 기록해보세요!</p>
               <Button asChild className="mt-4 gap-1.5 bg-green-600 hover:bg-green-700">
                 <Link href="/trading-diary/write">
                   <PenSquare className="h-4 w-4" />
@@ -167,6 +234,15 @@ export default function TradingDiaryPage() {
             ))
           )}
         </div>
+
+        {!isLoading && (
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            light
+          />
+        )}
       </main>
 
       <DiaryDetailModal entry={selectedEntry} onClose={() => setSelectedEntry(null)} />

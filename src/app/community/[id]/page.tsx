@@ -30,7 +30,9 @@ export default function CommunityPostPage() {
           profiles (
             id,
             full_name,
-            avatar_url
+            display_name,
+            avatar_url,
+            is_verified
           )
         `
         )

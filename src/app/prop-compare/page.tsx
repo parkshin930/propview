@@ -10,19 +10,19 @@ import { PropReviewSection } from "@/components/prop-compare/PropReviewSection";
 type PropId = "mubite" | "propw";
 
 const MUBITE_SPECS = [
-  { text: "출금: 첫 출금 즉시 / 이후 14일 주기 (영업일 1시간 내 처리 ⚡)" },
-  { text: "평가 기간: 무제한 (30일 미접속만 주의)" },
-  { text: "챌린지: 1단계 / 2단계 / 인스턴트 펀딩 지원" },
+  { text: "거래 환경: Bybit / Binance 유동성 기반 플랫폼" },
+  { text: "챌린지 타입: 1단계 / 2단계 / Instant(즉시 펀디드) 지원" },
   { text: "레버리지: 최대 1:100 (바이비트 기반)" },
-  { text: "규정: 투명한 금지 규정 (억울한 탈락 없음)" },
+  { text: "손실 규정: 단일 3%, 일일 4~5%, 계정 최대 6~10%" },
+  { text: "출금 조건: 챌린지 통과 후 첫 출금 즉시 가능 (이후 14일 주기)" },
 ];
 
 const PROPW_SPECS = [
-  { text: "출금: 평가 통과 후 5~7 영업일 (첫 출금 검토)" },
-  { text: "평가 기간: 30일 (연장 옵션 있음)" },
-  { text: "챌린지: 1단계 / 2단계 (인스턴트 미지원)" },
-  { text: "레버리지: 최대 1:50" },
-  { text: "규정: 표준 규정 (일부 스캘핑 제한)" },
+  { text: "거래 환경: CoinW 유동성 기반 자체 플랫폼" },
+  { text: "챌린지 타입: 스탠다드 / 프로 (1~2단계 검증)" },
+  { text: "레버리지: 최대 1:5 (거래쌍별 제한 있음)" },
+  { text: "손실 규정: 일일 4~5%, 계정 최대 6~10% (01:00 리셋)" },
+  { text: "출금 조건: 최소 100 USDT, 승인 후 7일 주기" },
 ];
 
 export default function PropComparePage() {
@@ -38,8 +38,20 @@ export default function PropComparePage() {
   };
 
   const handleExpandRules = () => {
-    setRulesExpanded(true);
-    setTimeout(() => rulesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    setRulesExpanded((prev) => {
+      const next = !prev;
+      if (!prev && next) {
+        setTimeout(
+          () =>
+            rulesRef.current?.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            }),
+          100
+        );
+      }
+      return next;
+    });
   };
 
   return (
@@ -63,10 +75,10 @@ export default function PropComparePage() {
             id="mubite"
             title="MUBITE (무바이트)"
             subtitle="무바이트"
-            badge="투명한 규정 & 빠른 출금"
+            badge="🟢 한국어지원 & 빠른출금"
             badgeGreen
             specs={MUBITE_SPECS}
-            buttonLabel="무바이트 챌린지 시작하기"
+            buttonLabel="무바이트 알아보기"
             buttonGreen
             isSelected={selectedProp === "mubite"}
             onSelect={() => handleSelect("mubite")}
@@ -76,10 +88,10 @@ export default function PropComparePage() {
             id="propw"
             title="PROP W (프랍더블류)"
             subtitle="프랍더블류"
-            badge="저렴한 입문 & 한국어 지원"
+            badge="🟣 단순한규정 & 초보자적합"
             badgeGreen={false}
             specs={PROPW_SPECS}
-            buttonLabel="프랍더블류 알아보기"
+            buttonLabel="프랍더블유 알아보기"
             buttonGreen={false}
             isSelected={selectedProp === "propw"}
             onSelect={() => handleSelect("propw")}
@@ -87,15 +99,16 @@ export default function PropComparePage() {
           />
         </div>
 
-        {/* 상세 규정 보기 (선택 카드에 따라 동적, 펼침/접힘) */}
+        {/* 상세 규정 보기 & 리뷰 (선택 카드에 따라 동적, 펼침/접힘) */}
         <div ref={rulesRef}>
           <PropRulesPanel selectedProp={selectedProp} isExpanded={rulesExpanded} />
         </div>
 
-        {/* 하단 상세 리뷰 & 댓글 (선택 카드에 따라 동적) */}
-        <section ref={reviewRef} aria-label="리뷰 및 댓글">
-          <PropReviewSection selectedProp={selectedProp} />
-        </section>
+        {rulesExpanded && (
+          <section ref={reviewRef} aria-label="리뷰 및 댓글">
+            <PropReviewSection selectedProp={selectedProp} />
+          </section>
+        )}
       </main>
 
       <Footer />

@@ -12,15 +12,24 @@ interface GenericPostCardProps {
 export function GenericPostCard({ post }: GenericPostCardProps) {
   const { user } = useAuth();
   const nickname = post.profiles?.display_name ?? post.profiles?.full_name ?? "익명";
-  const showCrown = user && post.user_id === user.id;
+  const showVerified = !!(post.profiles?.is_certified ?? post.profiles?.is_verified);
+  const isAdminAuthor = post.profiles?.role === "admin";
 
   return (
     <Link href={`/community/${post.id}`}>
       <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md transition duration-200 hover:-translate-y-1 hover:shadow-lg">
         <div className="relative mx-4 mt-4 aspect-video overflow-hidden rounded-xl bg-gray-100">
-          <div className="flex h-full w-full items-center justify-center text-gray-400">
-            <FileText className="h-10 w-10" aria-hidden />
-          </div>
+          {post.image_url ? (
+            <img
+              src={post.image_url}
+              alt={post.title}
+              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-gray-400">
+              <FileText className="h-10 w-10" aria-hidden />
+            </div>
+          )}
         </div>
         <div className="mt-auto p-4">
           <h3 className="line-clamp-2 text-sm font-medium text-foreground">
@@ -28,8 +37,20 @@ export function GenericPostCard({ post }: GenericPostCardProps) {
           </h3>
           <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
             <span className="truncate flex items-center gap-0.5">
+              {showVerified && !isAdminAuthor && (
+                <span className="shrink-0 text-[11px]" aria-label="출금 인증">
+                  🔰
+                </span>
+              )}
               {nickname}
-              {showCrown && <span className="shrink-0" aria-label="마스터">👑</span>}
+              {isAdminAuthor && (
+                <span
+                  className="ml-1 text-[11px] font-semibold text-black dark:text-white flex items-center gap-1"
+                  aria-label="관리자"
+                >
+                  💎 관리자
+                </span>
+              )}
             </span>
             <div className="flex shrink-0 items-center gap-3">
               <span className="flex items-center gap-1">

@@ -4,7 +4,7 @@ import { NewsCard } from "./NewsCard";
 import type { NewsItem } from "@/types/news";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "lucide-react";
-import { useLanguage } from "@/contexts/LanguageContext";
+import { useTranslations } from "next-intl";
 
 const sampleNews: NewsItem[] = [
   {
@@ -114,18 +114,18 @@ const sampleNews: NewsItem[] = [
 ];
 
 export function LiveFeed() {
-  const { t } = useLanguage();
+  const t = useTranslations("common");
   const today = "Thursday, March 12, 2026";
 
   return (
     <section className="w-full max-w-3xl mx-auto px-4 py-8">
       {/* Title */}
-      <h1 className="text-3xl font-bold text-foreground mb-6">{t.title}</h1>
+      <h1 className="text-3xl font-bold text-foreground mb-6">{t("title")}</h1>
 
       {/* Date */}
       <div className="flex items-center gap-2 mb-6 pb-4 border-b border-border">
         <Calendar className="w-5 h-5 text-[#52c68f]" />
-        <span className="text-sm text-muted-foreground">{t.today}, {today}</span>
+        <span className="text-sm text-muted-foreground">{t("today")}, {today}</span>
       </div>
 
       {/* News Items */}
@@ -146,7 +146,7 @@ export function LiveFeed() {
           variant="outline"
           className="w-full max-w-md h-12 text-muted-foreground hover:text-foreground border-border"
         >
-          {t.more}
+          {t("more")}
         </Button>
       </div>
     </section>

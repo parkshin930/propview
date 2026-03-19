@@ -8,6 +8,10 @@ const nextConfig = {
       "images.unsplash.com",
       "ext.same-assets.com",
       "ugc.same-assets.com",
+      "bin.bnbstatic.com",
+      "assets.coingecko.com",
+      "static-assets.coinbase.com",
+      "cryptoicons.org",
     ],
     remotePatterns: [
       {
@@ -28,6 +32,26 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "ugc.same-assets.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "bin.bnbstatic.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "assets.coingecko.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "static-assets.coinbase.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "cryptoicons.org",
         pathname: "/**",
       },
     ],

@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { WithdrawalVerificationCard } from "@/components/community/WithdrawalVerificationCard";
@@ -16,6 +17,9 @@ import { POST_CATEGORIES } from "@/types/database";
 import { isAdmin } from "@/lib/admin";
 import { REWARD_WITHDRAWAL_APPROVED_POINTS, REWARD_WITHDRAWAL_APPROVED_CREDITS } from "@/lib/rewards";
 import { PenSquare, TrendingUp, Clock, Filter } from "lucide-react";
+import { Pagination } from "@/components/ui/pagination";
+
+const COMMUNITY_PAGE_SIZE = 15;
 
 function CommunityPageContent() {
   const searchParams = useSearchParams();
@@ -23,12 +27,31 @@ function CommunityPageContent() {
   const { showToast } = useToast();
   const admin = isAdmin(user, profile);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [totalPostCount, setTotalPostCount] = useState(0);
+  const [approvedProfitCount, setApprovedProfitCount] = useState(0);
+  const [filteredTotal, setFilteredTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<PostCategory | "all">("all");
   const [sortBy, setSortBy] = useState<"latest" | "popular">("latest");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const supabase = createClient();
+  const totalPages = Math.max(1, Math.ceil(filteredTotal / COMMUNITY_PAGE_SIZE));
+
+  // 총 게시글 수(전체)·수익 인증 수(승인된 것만) 연동
+  const fetchCounts = async () => {
+    try {
+      const [totalRes, approvedRes] = await Promise.all([
+        supabase.from("posts").select("id", { count: "exact", head: true }),
+        supabase.from("posts").select("id", { count: "exact", head: true }).eq("category", "profit").eq("approval_status", "approved"),
+      ]);
+      setTotalPostCount(totalRes.count ?? 0);
+      setApprovedProfitCount(approvedRes.count ?? 0);
+    } catch (e) {
+      console.error("카운트 조회 실패:", e);
+    }
+  };
 
   // URL 쿼리 category=profit 이면 출금 인증 탭 선택 (홈에서 '출금 인증' 클릭 시)
   useEffect(() => {
@@ -38,7 +61,15 @@ function CommunityPageContent() {
     }
   }, [searchParams]);
 
-  // 게시글 목록 가져오기
+  // 현재 필터 기준 전체 개수 (페이지네이션용)
+  const fetchFilteredCount = async () => {
+    let q = supabase.from("posts").select("id", { count: "exact", head: true });
+    if (selectedCategory !== "all") q = q.eq("category", selectedCategory);
+    const { count } = await q;
+    setFilteredTotal(count ?? 0);
+  };
+
+  // 게시글 목록 가져오기 (서버 측 페이징)
   const fetchPosts = async () => {
     setIsLoading(true);
     try {
@@ -50,23 +81,25 @@ function CommunityPageContent() {
             id,
             full_name,
             display_name,
-            avatar_url
+            avatar_url,
+            is_verified,
+            role
           )
         `);
 
-      // 카테고리 필터
       if (selectedCategory !== "all") {
         query = query.eq("category", selectedCategory);
       }
 
-      // 정렬
       if (sortBy === "latest") {
         query = query.order("created_at", { ascending: false });
       } else {
         query = query.order("likes", { ascending: false });
       }
 
-      const { data, error } = await query.limit(50);
+      const from = (page - 1) * COMMUNITY_PAGE_SIZE;
+      const to = from + COMMUNITY_PAGE_SIZE - 1;
+      const { data, error } = await query.range(from, to);
 
       if (error) {
         console.error("게시글 조회 에러:", error);
@@ -82,22 +115,41 @@ function CommunityPageContent() {
   };
 
   useEffect(() => {
+    fetchFilteredCount();
+  }, [selectedCategory]);
+
+  useEffect(() => {
     fetchPosts();
+  }, [selectedCategory, sortBy, page]);
+
+  useEffect(() => {
+    setPage(1);
   }, [selectedCategory, sortBy]);
+
+  useEffect(() => {
+    fetchCounts();
+  }, []);
 
   const handlePostCreated = () => {
     setIsCreateModalOpen(false);
+    setPage(1);
+    fetchFilteredCount();
     fetchPosts();
+    fetchCounts();
   };
 
   const handleApproveWithdrawal = async (post: Post) => {
     const { data: authorProfile } = await supabase
       .from("profiles")
-      .select("points, credits")
+      .select("points, credits, total_withdrawal_amount")
       .eq("id", post.user_id)
       .single();
+
     const currentPoints = (authorProfile?.points ?? 0) + REWARD_WITHDRAWAL_APPROVED_POINTS;
     const currentCredits = (authorProfile?.credits ?? 0) + REWARD_WITHDRAWAL_APPROVED_CREDITS;
+    const addedAmount = Number(post.withdrawal_amount) || 0;
+    const newTotalWithdrawal = (Number(authorProfile?.total_withdrawal_amount) || 0) + addedAmount;
+
     const { error: updatePostError } = await supabase
       .from("posts")
       .update({ approval_status: "approved" })
@@ -107,13 +159,26 @@ function CommunityPageContent() {
       showToast("승인 처리에 실패했습니다.");
       return;
     }
-    await supabase
+
+    const { error: updateProfileError } = await supabase
       .from("profiles")
-      .update({ points: currentPoints, credits: currentCredits })
+      .update({
+        points: currentPoints,
+        credits: currentCredits,
+        is_verified: true,
+        total_withdrawal_amount: newTotalWithdrawal,
+      })
       .eq("id", post.user_id);
-    showToast("승인되었습니다. 포인트가 지급되었습니다.");
+
+    if (updateProfileError) {
+      console.error("프로필 업데이트 실패:", updateProfileError);
+      showToast("승인은 반영되었으나 프로필 업데이트에 실패했습니다.");
+    } else {
+      showToast("승인되었습니다. 🔰 배지 및 포인트가 지급되었습니다.");
+    }
     if (user?.id === post.user_id) await refreshProfile();
     fetchPosts();
+    fetchCounts(); // 수익 인증 카운트 +1 반영
   };
 
   const profitPosts = posts.filter((p) => p.category === "profit");
@@ -122,16 +187,19 @@ function CommunityPageContent() {
   const rankingPosts = selectedCategory === "profit" ? profitApproved : posts;
   const pendingPosts = selectedCategory === "profit" ? profitPending : [];
 
-  // 수익 인증 카드용 메타 추출 (콘텐츠에 "PROP:APEX" "AMOUNT:10000" 등 있으면 사용, 없으면 기본값)
+  // 수익 인증 카드용 메타 (DB 필드 우선, 없으면 예전 방식으로 추출)
   const getPropCompanyFromPost = (post: Post): string => {
+    if (post.prop_company?.trim()) return post.prop_company;
     const match = post.content?.match(/PROP:\s*(\S+)/i) || post.title?.match(/(APEX|루시드|Lucid|트레이딩)/i);
-    return match ? (match[1] || match[0]) : "APEX";
+    return match ? (match[1] || match[0]) : "—";
   };
   const getAmountFromPost = (post: Post): string => {
+    if (post.withdrawal_amount != null) return `+ $${Number(post.withdrawal_amount).toLocaleString()}`;
     const match = post.content?.match(/AMOUNT:\s*\$?([\d,]+)/i) || post.content?.match(/\$\s*([\d,]+)/);
     if (match) return `+ $${Number(match[1]).toLocaleString()}`;
-    return "+ $10,000";
+    return "+ $—";
   };
+  const getVerificationImageUrl = (post: Post): string | null => post.verification_image_url ?? null;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -160,12 +228,14 @@ function CommunityPageContent() {
                 </Button>
               ) : (
                 <Button
+                  asChild
                   variant="outline"
-                  disabled
                   className="gap-2"
                 >
-                  <PenSquare className="h-4 w-4" />
-                  로그인 후 글쓰기
+                  <Link href="/auth">
+                    <PenSquare className="h-4 w-4" />
+                    로그인 후 글쓰기
+                  </Link>
                 </Button>
               )}
             </div>
@@ -221,6 +291,18 @@ function CommunityPageContent() {
               </div>
             </div>
 
+            {/* Selected category total count */}
+            <div className="mb-4 text-sm text-muted-foreground">
+              {selectedCategory === "all" ? (
+                <span>총 게시글 수: <span className="font-semibold text-foreground">{totalPostCount}</span>개</span>
+              ) : (
+                <span>
+                  선택한 게시판 총 게시글 수:{" "}
+                  <span className="font-semibold text-foreground">{filteredTotal}</span>개
+                </span>
+              )}
+            </div>
+
             {/* Card Grid (출금 인증 시 카드형 그리드) */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
               {isLoading ? (
@@ -242,7 +324,7 @@ function CommunityPageContent() {
                 ))
               ) : rankingPosts.length === 0 && pendingPosts.length === 0 ? (
                 <div className="col-span-full py-12 text-center">
-                  <p className="text-muted-foreground">아직 게시글이 없습니다.</p>
+                  <p className="text-muted-foreground">첫 번째 글을 남겨보세요!</p>
                   {user && (
                     <Button
                       onClick={() => setIsCreateModalOpen(true)}
@@ -261,6 +343,7 @@ function CommunityPageContent() {
                         post={post}
                         propCompany={getPropCompanyFromPost(post)}
                         amount={getAmountFromPost(post)}
+                        imageUrl={getVerificationImageUrl(post)}
                         isAdmin={admin}
                         onApprove={handleApproveWithdrawal}
                       />
@@ -279,6 +362,7 @@ function CommunityPageContent() {
                           post={post}
                           propCompany={getPropCompanyFromPost(post)}
                           amount={getAmountFromPost(post)}
+                          imageUrl={getVerificationImageUrl(post)}
                           isAdmin={admin}
                           onApprove={handleApproveWithdrawal}
                         />
@@ -288,6 +372,15 @@ function CommunityPageContent() {
                 </>
               )}
             </div>
+
+            {!isLoading && (
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                light
+              />
+            )}
           </div>
 
           {/* Sidebar */}
@@ -297,13 +390,11 @@ function CommunityPageContent() {
               <h3 className="font-semibold mb-4">커뮤니티 현황</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-3 bg-muted/50 rounded-lg">
-                  <p className="text-2xl font-bold text-[#52c68f]">{posts.length}</p>
+                  <p className="text-2xl font-bold text-[#52c68f]">{totalPostCount}</p>
                   <p className="text-xs text-muted-foreground">총 게시글</p>
                 </div>
                 <div className="text-center p-3 bg-muted/50 rounded-lg">
-                  <p className="text-2xl font-bold text-[#52c68f]">
-                    {posts.filter((p) => p.category === "profit").length}
-                  </p>
+                  <p className="text-2xl font-bold text-[#52c68f]">{approvedProfitCount}</p>
                   <p className="text-xs text-muted-foreground">수익 인증</p>
                 </div>
               </div>

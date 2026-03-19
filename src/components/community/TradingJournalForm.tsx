@@ -11,6 +11,7 @@ import {
   REWARD_TRADING_DIARY_POINTS,
   REWARD_TRADING_DIARY_CREDITS,
 } from "@/lib/rewards";
+import { notifyTradingDiaryReward, maybeNotifyLevelUp } from "@/lib/notifications";
 import {
   LOCAL_DIARY_KEY,
   loadLocalEntries as loadLocalFromStorage,
@@ -19,10 +20,11 @@ import {
   addLocalPointsDelta,
   type DiaryEntryItem,
 } from "@/lib/diary-storage";
+import { useFreshForm } from "@/hooks/useFreshForm";
 
 const QUICK_TAGS = ["#뇌동매매", "#원칙준수", "#추격매수", "#분할익절"] as const;
 const MIN_CHARS_FOR_REWARD = 20;
-const MAX_DAILY_DIARY_REWARDS = 3;
+const MAX_DAILY_DIARY_REWARDS = 1;
 
 function getTodayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -76,6 +78,23 @@ export function TradingJournalForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const resetForm = () => {
+    setTitle("");
+    setSymbol("");
+    setPosition("long");
+    setEntry("");
+    setTp("");
+    setSl("");
+    setProfit("");
+    setMistake("");
+    setPrinciple("");
+    setSelectedTags([]);
+    setError(null);
+  };
+
+  // "글쓰기 창 = 새 도화지" 강제: 페이지 진입 시 무조건 초기화
+  useFreshForm(resetForm);
+
   useEffect(() => {
     setLocalEntries(loadLocalEntries());
   }, []);
@@ -87,17 +106,9 @@ export function TradingJournalForm() {
   };
 
   const runSuccessFlow = (message: "points" | "saved" | "limit" | "short") => {
-    setTitle("");
-    setSymbol("");
-    setEntry("");
-    setTp("");
-    setSl("");
-    setProfit("");
-    setMistake("");
-    setPrinciple("");
-    setSelectedTags([]);
+    resetForm();
     if (message === "points") showToast("🟡 크레딧과 포인트가 적립되었습니다!");
-    else if (message === "limit") showToast("저장되었습니다. (오늘 보상 한도 3회 도달)");
+    else if (message === "limit") showToast("저장되었습니다. (오늘 보상 한도 1회 도달)");
     else if (message === "short") showToast("저장되었습니다. (20자 이상 작성 시 보상)");
     else showToast("매매일지가 저장되었습니다.");
     router.push("/trading-diary");
@@ -157,15 +168,35 @@ export function TradingJournalForm() {
         if (!insertError) {
           setDiaryRefetch();
           if (grantPoints) {
-            const newPoints = (profile?.points ?? 0) + REWARD_TRADING_DIARY_POINTS;
-            const newCredits = (profile?.credits ?? 0) + REWARD_TRADING_DIARY_CREDITS;
+            const prevPoints =
+              (profile as unknown as { points?: number; point?: number } | null)?.points ??
+              (profile as unknown as { points?: number; point?: number } | null)?.point ??
+              0;
+            const newPoints = prevPoints + REWARD_TRADING_DIARY_POINTS;
+            const prevCredits =
+              (profile as unknown as { credits?: number; credit?: number } | null)?.credits ??
+              (profile as unknown as { credits?: number; credit?: number } | null)?.credit ??
+              0;
+            const newCredits = prevCredits + REWARD_TRADING_DIARY_CREDITS;
             const { error: updateError } = await supabase
               .from("profiles")
-              .update({ points: newPoints, credits: newCredits })
+              .update({
+                points: newPoints,
+                point: newPoints,
+                credits: newCredits,
+                credit: newCredits,
+              })
               .eq("id", user.id);
             if (!updateError) {
               await refreshProfile();
               incrementDailyRewardCount(user.id);
+              await notifyTradingDiaryReward(user.id);
+              await maybeNotifyLevelUp({
+                userId: user.id,
+                previousPoints: prevPoints,
+                newPoints,
+                rankOverride: profile?.rank_override ?? null,
+              });
               runSuccessFlow("points");
             } else {
               console.error("[매매일지] 포인트 반영 실패:", updateError?.message, updateError?.code, updateError?.details);
@@ -213,6 +244,12 @@ export function TradingJournalForm() {
 
   return (
     <>
+      <div className="mx-auto mb-4 max-w-xl rounded-xl bg-yellow-50 px-4 py-3 text-xs leading-relaxed text-yellow-900">
+        <p className="font-semibold">📢 매매일지는 하루 1개까지만 포인트가 지급됩니다.</p>
+        <p className="mt-1">
+          ⚠️ 무성의한 작성(단순 초성, 의미 없는 내용 등) 적발 시 포인트 회수 및 제재 대상이 될 수 있습니다.
+        </p>
+      </div>
       <form onSubmit={handleSubmit} className="mx-auto max-w-xl space-y-6">
         {/* 제목 · 종목 · 포지션 카드 */}
         <div className="rounded-2xl bg-white p-6 shadow-sm">
@@ -274,7 +311,9 @@ export function TradingJournalForm() {
             <div>
               <label className="mb-1 block text-sm font-medium text-foreground">진입가</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base" aria-hidden>🎯</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base" aria-hidden>
+                  🎯
+                </span>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -286,9 +325,11 @@ export function TradingJournalForm() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">목표가(익절)</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">익절가격</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base" aria-hidden>🎯</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base" aria-hidden>
+                  🟢
+                </span>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -300,9 +341,11 @@ export function TradingJournalForm() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">손절가</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">손절가격</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base" aria-hidden>🛑</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base" aria-hidden>
+                  🛑
+                </span>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -384,6 +427,22 @@ export function TradingJournalForm() {
           </div>
         </div>
 
+        {/* 포인트 / 어뷰징 방지 안내 */}
+        <div className="rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-xs leading-relaxed text-yellow-900">
+          <p className="mb-1 font-semibold">
+            ⚠️ 매매일지 포인트 지급 및 어뷰징 안내
+          </p>
+          <p>
+            포인트 지급: 매매일지 작성 시 포인트는 하루 딱 1개까지만 지급됩니다. (중복 작성은 가능하지만 추가 포인트는 없습니다)
+          </p>
+          <p className="mt-1">
+            어뷰징 경고: 무분별한 도배나 악용이 적발될 경우 포인트 회수 및 게시글 삭제 대상입니다.
+          </p>
+          <p className="mt-2 text-[11px] text-yellow-800">
+            정성스러운 매매일지는 본인의 실력 향상에도 큰 도움이 됩니다. 건강한 커뮤니티를 위해 함께 노력해 주세요!
+          </p>
+        </div>
+
         {/* 하단 버튼 */}
         {error && (
           <p className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-xl">
@@ -402,7 +461,10 @@ export function TradingJournalForm() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.back()}
+            onClick={() => {
+              resetForm();
+              router.back();
+            }}
             className="rounded-xl"
             disabled={isSubmitting}
           >

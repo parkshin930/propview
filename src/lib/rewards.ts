@@ -10,26 +10,51 @@ export const REWARD_COMMUNITY_CREDITS = 20;
 export const REWARD_WITHDRAWAL_APPROVED_POINTS = 300;
 export const REWARD_WITHDRAWAL_APPROVED_CREDITS = 300;
 
-export type RankLabel = "입문자" | "트레이더" | "프로" | "마스터";
+/** 일일 베스트 (매일 00:00 크론) - 그날 좋아요 1위 글 작성자 */
+export const REWARD_DAILY_TOP_POINTS = 100;
+export const REWARD_DAILY_TOP_CREDITS = 100;
 
-/**
- * 누적 포인트와 rank_override에 따라 등급 라벨 반환.
- * rank_override가 '마스터'면 마스터 등급(👑 표시용).
- */
-export function getRankLabel(
-  points: number = 0,
-  rankOverride?: string | null
-): RankLabel {
-  if (rankOverride === "마스터") return "마스터";
-  if (points >= 5000) return "프로";
-  if (points >= 1000) return "트레이더";
-  return "입문자";
+/** 주간 탑 트레이더 (매주 일요일 00:00 크론) - 1~3위 */
+export const REWARD_WEEKLY_1_POINTS = 200;
+export const REWARD_WEEKLY_1_CREDITS = 200;
+export const REWARD_WEEKLY_2_POINTS = 100;
+export const REWARD_WEEKLY_2_CREDITS = 100;
+export const REWARD_WEEKLY_3_POINTS = 50;
+export const REWARD_WEEKLY_3_CREDITS = 50;
+
+/** 포인트 구간별 별(Star) 등급 */
+export const STAR_THRESHOLDS = [
+  { min: 0, max: 999, stars: 1 },
+  { min: 1000, max: 2999, stars: 2 },
+  { min: 3000, max: 9999, stars: 3 },
+  { min: 10000, max: 29999, stars: 4 },
+  { min: 30000, max: Infinity, stars: 5 },
+] as const;
+
+export type StarTier = (typeof STAR_THRESHOLDS)[number]["stars"];
+
+export function getStarCount(points: number = 0): StarTier {
+  const found =
+    STAR_THRESHOLDS.find((tier) => points >= tier.min && points <= tier.max) ??
+    STAR_THRESHOLDS[0];
+  return found.stars;
 }
 
-/** 마스터 등급 여부 (금색 왕관 표시) */
-export function isMasterRank(
-  points: number = 0,
-  rankOverride?: string | null
-): boolean {
-  return getRankLabel(points, rankOverride) === "마스터";
+export function getStarLabel(points: number = 0): string {
+  const stars = getStarCount(points);
+  if (stars === 1) return "원스타";
+  if (stars === 2) return "투스타";
+  if (stars === 3) return "쓰리스타";
+  if (stars === 4) return "Four-Star General";
+  return "Emerald Crown";
 }
+
+export function getStarIcons(points: number = 0): string {
+  const stars = getStarCount(points);
+  if (stars === 5) return "👑";
+  return "★".repeat(stars);
+}
+
+/** 오늘의 전략 작성 보상 (일반 글보다 상향) */
+export const REWARD_STRATEGY_POINTS = 40;
+export const REWARD_STRATEGY_CREDITS = 40;

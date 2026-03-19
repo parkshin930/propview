@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 
 export default function AuthPage() {
+  const t = useTranslations("common");
   const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
   const router = useRouter();
 
@@ -59,24 +61,21 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted flex flex-col">
       <header className="w-full border-b bg-white/95 backdrop-blur" style={{ borderBottomColor: 'var(--header-border, #f0f0f0)', borderBottomWidth: '1px' }}>
-        <div className="mx-auto flex h-14 max-w-screen-md items-center justify-between pl-5 pr-4">
-          <Link href="/" className="flex items-end gap-1.5">
+        <div className="mx-auto flex h-32 max-w-screen-md items-center justify-between pl-5 pr-4">
+          <Link href="/" className="flex items-center shrink-0">
             <img
-              src="/pv-logo.png"
-              alt=""
-              width={34}
-              height={34}
-              className="h-[34px] w-[34px] shrink-0 object-contain object-center"
+              src="/logo.png"
+              alt="PropView"
+              width={450}
+              height={150}
+              className="logo-theme-contrast h-[150px] w-auto shrink-0 object-contain object-center translate-y-[4px]"
             />
-            <span className="-mb-0.5 text-base font-semibold leading-none tracking-tight" style={{ color: 'var(--brand-charcoal, #222222)' }}>
-              PROPVIEW
-            </span>
           </Link>
           <Link
             href="/"
             className="text-xs text-muted-foreground hover:text-foreground"
           >
-            메인으로 돌아가기
+            {t("backToMain")}
           </Link>
         </div>
       </header>
@@ -97,11 +96,11 @@ export default function AuthPage() {
             </p>
           </div>
 
-          <div className="mb-6 inline-flex items-center gap-1 rounded-full bg-muted p-1 text-xs">
+          <div className="mb-6 flex w-full items-center gap-1 rounded-full bg-muted p-1 text-xs">
             <button
               type="button"
               onClick={() => setMode("login")}
-              className={`flex-1 rounded-full px-3 py-1.5 transition-colors ${
+              className={`w-1/2 rounded-full px-4 py-2 leading-none whitespace-nowrap transition-colors ${
                 mode === "login"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground"
@@ -112,7 +111,7 @@ export default function AuthPage() {
             <button
               type="button"
               onClick={() => setMode("register")}
-              className={`flex-1 rounded-full px-3 py-1.5 transition-colors ${
+              className={`w-1/2 rounded-full px-4 py-2 leading-none whitespace-nowrap transition-colors ${
                 mode === "register"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground"

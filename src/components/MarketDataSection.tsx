@@ -1,89 +1,190 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useBinanceFuturesData } from "@/hooks/useBinanceFuturesData";
+import { useFearGreedIndex } from "@/hooks/useFearGreedIndex";
+import { useBinanceLiquidationStream } from "@/hooks/useBinanceLiquidationStream";
 
-const TABS = [
-  { id: "longShort" as const, label: "롱숏 비율" },
-  { id: "liquidation" as const, label: "강제청산 비율" },
-  { id: "funding" as const, label: "펀딩 비율" },
-  { id: "openInterest" as const, label: "미결제 약정" },
-] as const;
+const TV_GREEN = "#26A69A";
+const TV_RED = "#F23645";
+const LIQ_LONG_COLOR = "#3b82f6"; // 파란색 (롱 청산)
+const LIQ_SHORT_COLOR = "#f97316"; // 주황색 (숏 청산)
 
-const TAB_CONTENT = {
-  longShort: {
-    emoji: "😎",
-    message: "현재 롱 62% / 숏 38%로 롱이 우위예요.",
-    longPercent: 62,
-    shortPercent: 38,
-  },
-  liquidation: {
-    emoji: "😨",
-    message: "24시간 동안 103,804명이 강제청산 되었어요.",
-    longPercent: 55,
-    shortPercent: 45,
-  },
-  funding: {
-    emoji: "📊",
-    message: "BTC 펀딩비 0.01%로 롱이 숏에게 지불 중이에요.",
-    longPercent: 52,
-    shortPercent: 48,
-  },
-  openInterest: {
-    emoji: "📈",
-    message: "미결제 약정이 전일 대비 3.2% 증가했어요.",
-    longPercent: 58,
-    shortPercent: 42,
-  },
-};
+function RatioBar({
+  leftPercent,
+  rightPercent,
+  leftLabel,
+  rightLabel,
+  leftColor,
+  rightColor,
+}: {
+  leftPercent: number;
+  rightPercent: number;
+  leftLabel: string;
+  rightLabel: string;
+  leftColor: string;
+  rightColor: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between text-xs text-muted-foreground dark:text-gray-400">
+        <span>
+          {leftLabel} {leftPercent}%
+        </span>
+        <span>
+          {rightLabel} {rightPercent}%
+        </span>
+      </div>
+      <div className="flex h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+        <div
+          className="h-full rounded-l-full transition-all duration-500 ease-out"
+          style={{ width: `${leftPercent}%`, backgroundColor: leftColor }}
+        />
+        <div
+          className="h-full rounded-r-full transition-all duration-500 ease-out"
+          style={{ width: `${rightPercent}%`, backgroundColor: rightColor }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function formatNotional(v: number) {
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
+  if (v >= 1e3) return `$${(v / 1e3).toFixed(2)}K`;
+  return `$${v.toFixed(0)}`;
+}
 
 export function MarketDataSection() {
-  const [activeTab, setActiveTab] = useState<typeof TABS[number]["id"]>("longShort");
-  const content = TAB_CONTENT[activeTab];
+  const { longShort, funding, openInterest, liquidation, loading, error } = useBinanceFuturesData();
+  const { data: fearGreed, loading: fgLoading } = useFearGreedIndex();
+
+  const fgValue = fearGreed?.value ?? 50;
+  const fgLabel = fearGreed?.classification ?? "Neutral";
+
+  // WebSocket으로 BTCUSDT 강제청산 실시간 누적 (REST 24h 합계를 베이스로 사용)
+  const liqStream = useBinanceLiquidationStream("BTCUSDT", liquidation.longLiquidated, liquidation.shortLiquidated);
+  const liqTotal = liqStream.long + liqStream.short;
+  const liqLongPct = liqTotal > 0 ? Math.round((liqStream.long / liqTotal) * 100) : 50;
+  const liqShortPct = 100 - liqLongPct;
 
   return (
-    <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-[#1f2937] dark:bg-[#111827]">
-      <h2 className="mb-2 text-base font-semibold text-foreground dark:text-gray-100">
-        선물 트레이딩 마켓 데이터
+    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[#1f2937] dark:bg-[#111827]">
+      <h2 className="mb-3 text-base font-semibold text-foreground dark:text-gray-100">
+        선물 마켓 데이터 (24h)
       </h2>
-      {/* 알약 모양 탭 */}
-      <div className="mb-3 flex flex-wrap gap-2">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === tab.id
-                ? "bg-[#222222] text-white dark:bg-gray-700 dark:text-gray-100"
-                : "bg-gray-100 text-muted-foreground hover:bg-gray-200 hover:text-foreground dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-      {/* 요약 말풍선 + 게이지 바 */}
-      <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/80 dark:border dark:border-gray-700">
-        <p className="mb-2 flex items-center gap-2 text-sm text-foreground dark:text-gray-100">
-          <span className="text-lg" aria-hidden>{content.emoji}</span>
-          {content.message}
-        </p>
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs text-muted-foreground dark:text-gray-400">
-            <span>롱 {content.longPercent}%</span>
-            <span>숏 {content.shortPercent}%</span>
-          </div>
-          <div className="flex h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-            <div
-              className="h-full rounded-l-full bg-green-500 transition-all duration-300"
-              style={{ width: `${content.longPercent}%` }}
+      {error && (
+        <p className="mb-2 text-sm text-red-500 dark:text-red-400">{error}</p>
+      )}
+      <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-3">
+        {/* 롱/숏 비율 */}
+        <div className="rounded-lg border border-gray-100 bg-gray-50/80 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground dark:text-gray-400">
+            롱/숏 비율 (BTCUSDT)
+          </p>
+          {loading ? (
+            <div className="h-10 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700" />
+          ) : (
+            <RatioBar
+              leftPercent={longShort.longPercent}
+              rightPercent={longShort.shortPercent}
+              leftLabel="롱"
+              rightLabel="숏"
+              leftColor={TV_GREEN}
+              rightColor={TV_RED}
             />
-            <div
-              className="h-full rounded-r-full bg-blue-500 transition-all duration-300"
-              style={{ width: `${content.shortPercent}%` }}
-            />
-          </div>
+          )}
+          <p className="mt-1.5 text-xs text-foreground/80 dark:text-gray-300">
+            {longShort.message}
+          </p>
         </div>
+
+        {/* BTC 24H 청산 (중앙) — REST 24h + WebSocket 실시간 누적 */}
+        <div className="rounded-lg border border-gray-100 bg-gray-50/80 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground dark:text-gray-400">
+            BTC 24H 청산
+          </p>
+          {loading ? (
+            <div className="h-8 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+          ) : (
+            <>
+              <RatioBar
+                leftPercent={liqLongPct}
+                rightPercent={liqShortPct}
+                leftLabel="롱 청산"
+                rightLabel="숏 청산"
+                leftColor={LIQ_LONG_COLOR}
+                rightColor={LIQ_SHORT_COLOR}
+              />
+              <p className="mt-1.5 text-[11px] text-foreground/80 dark:text-gray-300">
+                {formatNotional(liqStream.long)} / {formatNotional(liqStream.short)}
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* 공포탐욕 지수 */}
+        <div className="rounded-lg border border-gray-100 bg-gray-50/80 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground dark:text-gray-400">
+            공포·탐욕 지수 (Crypto)
+          </p>
+          {fgLoading ? (
+            <div className="h-10 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700" />
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-muted-foreground dark:text-gray-400">
+                  <span>공포</span>
+                  <span>탐욕</span>
+                </div>
+                <div className="relative h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
+                    style={{
+                      width: `${fgValue}%`,
+                      background: "linear-gradient(90deg, #ef4444, #eab308, #22c55e)",
+                    }}
+                  />
+                </div>
+              </div>
+              <p className="mt-1.5 text-xs text-foreground/80 dark:text-gray-300">
+                현재 지수: <span className="font-semibold">{fgValue}</span>{" "}
+                <span className="uppercase tracking-wide text-[11px] text-muted-foreground dark:text-gray-400">
+                  ({fgLabel})
+                </span>
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* 펀딩 비율 한 줄 + OI 요약 */}
+      <div className="mt-3 rounded-lg border border-gray-100 py-2 px-3 text-xs text-muted-foreground dark:border-gray-700 dark:bg-gray-800/40 dark:text-gray-400">
+        <p>{funding.message}</p>
+        <p className="mt-0.5">
+          BTC 미결제 약정 24h 변화:{" "}
+          <span
+            className="font-medium"
+            style={{ color: openInterest.changePercent >= 0 ? TV_GREEN : TV_RED }}
+          >
+            {openInterest.changePercent >= 0 ? "+" : ""}
+            {openInterest.changePercent.toFixed(2)}%
+          </span>
+        </p>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+        <span>Data: Binance Futures API, alternative.me</span>
+        <span className="text-border">|</span>
+        <Link
+          href="https://www.binance.com/en/futures"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-foreground/80 hover:underline"
+        >
+          Binance Futures
+        </Link>
       </div>
     </section>
   );

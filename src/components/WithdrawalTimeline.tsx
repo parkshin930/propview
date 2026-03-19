@@ -1,22 +1,13 @@
 "use client";
 
-const RANKING = [
-  { rank: 1, nickname: "트레이더김", amount: "$312,000" },
-  { rank: 2, nickname: "코인매니아", amount: "$285,500" },
-  { rank: 3, nickname: "프랍마스터", amount: "$198,200" },
-  { rank: 4, nickname: "달빛매매", amount: "$156,000" },
-  { rank: 5, nickname: "실전고래", amount: "$142,800" },
-  { rank: 6, nickname: "암호화폐러버", amount: "$128,400" },
-  { rank: 7, nickname: "프랍수익왕", amount: "$115,200" },
-  { rank: 8, nickname: "트레이딩킹", amount: "$98,500" },
-  { rank: 9, nickname: "코인파워", amount: "$87,300" },
-  { rank: 10, nickname: "수익인증러", amount: "$76,100" },
-  { rank: 11, nickname: "코인트렌드", amount: "$68,200" },
-  { rank: 12, nickname: "프랍수익가", amount: "$61,500" },
-  { rank: 13, nickname: "차트마스터", amount: "$55,800" },
-  { rank: 14, nickname: "선물고수", amount: "$49,200" },
-  { rank: 15, nickname: "수익인증왕", amount: "$44,100" },
-];
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+
+interface RankItem {
+  rank: number;
+  nickname: string;
+  amount: string;
+}
 
 function RankIcon({ rank }: { rank: number }) {
   if (rank === 1) return <span aria-hidden>🥇</span>;
@@ -25,35 +16,79 @@ function RankIcon({ rank }: { rank: number }) {
   return <span className="text-muted-foreground font-medium">{rank}</span>;
 }
 
+function formatWithdrawalAmount(value: number): string {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value).replace(/^/, "$");
+}
+
+/** 15위까지 스크롤 없이 보이게 (한 줄 약 40px × 15) */
+const RANK_LIST_MAX_H = 600;
+
 export function WithdrawalTimeline() {
+  const [ranking, setRanking] = useState<RankItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const load = async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, display_name, full_name, total_withdrawal_amount")
+        .not("total_withdrawal_amount", "is", null)
+        .gt("total_withdrawal_amount", 0)
+        .order("total_withdrawal_amount", { ascending: false })
+        .limit(20);
+
+      if (error) {
+        console.error("누적 출금 랭킹 조회 실패:", error);
+        setRanking([]);
+        return;
+      }
+
+      const list: RankItem[] = (data || []).map((row, i) => ({
+        rank: i + 1,
+        nickname: row.display_name?.trim() || row.full_name?.trim() || "익명",
+        amount: formatWithdrawalAmount(Number(row.total_withdrawal_amount) || 0),
+      }));
+      setRanking(list);
+    };
+    load().finally(() => setLoading(false));
+  }, []);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-1 min-h-0 flex-col rounded-xl border border-gray-100 bg-white p-3 shadow-sm dark:border-[#1f2937] dark:bg-[#111827]">
+      <div className="flex flex-1 min-h-0 flex-col rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-[#1f2937] dark:bg-[#111827] max-h-[min(660px,68vh)]">
         <h2 className="mb-3 shrink-0 text-base font-semibold text-foreground dark:text-gray-100">
-          이달의 프랍 출금 랭킹
+          누적 프랍 출금 랭킹
         </h2>
-        <ul className="min-h-0 flex-1 space-y-2">
-        {RANKING.map((item) => (
-          <li
-            key={item.rank}
-            className="flex items-center justify-between gap-4"
-          >
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center text-lg">
-                <RankIcon rank={item.rank} />
-              </span>
-              <span className="truncate text-sm font-medium text-foreground dark:text-gray-100">
-                {item.nickname}
-              </span>
-            </div>
-            <div className="shrink-0 text-right">
-              <span className="text-xs text-muted-foreground">누적 </span>
-              <span className="text-sm font-bold text-[#222222] dark:text-gray-100">
-                {item.amount}
-              </span>
-            </div>
-          </li>
-        ))}
+        <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto" style={{ maxHeight: RANK_LIST_MAX_H }}>
+          {loading ? (
+            <li className="text-sm text-muted-foreground">로딩 중...</li>
+          ) : ranking.length === 0 ? (
+            <li className="text-sm text-muted-foreground">이번 주 승인된 출금 내역이 없습니다.</li>
+          ) : (
+            ranking.map((item) => (
+              <li
+                key={`${item.rank}-${item.nickname}`}
+                className="flex items-center justify-between gap-4"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center text-lg">
+                    <RankIcon rank={item.rank} />
+                  </span>
+                  <span className="truncate text-sm font-medium text-foreground dark:text-gray-100">
+                    {item.nickname}
+                  </span>
+                </div>
+                <div className="shrink-0 text-right">
+                  <span className="text-xs text-muted-foreground">누적 </span>
+                  <span className="text-sm font-bold text-[#222222] dark:text-gray-100">
+                    {item.amount}
+                  </span>
+                </div>
+              </li>
+            ))
+          )}
         </ul>
       </div>
     </div>

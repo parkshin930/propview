@@ -8,20 +8,15 @@ import { POST_CATEGORIES } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
-import {
-  Heart,
-  MessageCircle,
-  Eye,
-  MoreHorizontal,
-  Trash2,
-  User,
-} from "lucide-react";
+import { isAdmin as isAdminUtil } from "@/lib/admin";
+import { Heart, MessageCircle, Eye, MoreHorizontal, Trash2, User } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { notifyPostLiked } from "@/lib/notifications";
 
 interface PostCardProps {
   post: Post;
@@ -29,12 +24,13 @@ interface PostCardProps {
 }
 
 export function PostCard({ post, onUpdate }: PostCardProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [isLiking, setIsLiking] = useState(false);
   const supabase = createClient();
 
   const categoryInfo = POST_CATEGORIES.find((c) => c.value === post.category);
   const isAuthor = user?.id === post.user_id;
+  const isAdminUser = isAdminUtil(user, profile);
 
   // 좋아요
   const handleLike = async () => {
@@ -48,6 +44,9 @@ export function PostCard({ post, onUpdate }: PostCardProps) {
         .eq("id", post.id);
 
       if (error) throw error;
+      if (post.user_id && post.user_id !== user.id) {
+        await notifyPostLiked({ postAuthorId: post.user_id, postId: post.id });
+      }
       onUpdate();
     } catch (error) {
       console.error("좋아요 에러:", error);
@@ -111,8 +110,22 @@ export function PostCard({ post, onUpdate }: PostCardProps) {
           )}
           <div>
             <p className="font-medium text-sm flex items-center gap-1">
+              {post.profiles?.is_certified ?? post.profiles?.is_verified
+                ? !(post.profiles?.role === "admin") && (
+                    <span className="shrink-0 text-[11px]" aria-label="출금 인증">
+                      🔰
+                    </span>
+                  )
+                : null}
               {post.profiles?.display_name ?? post.profiles?.full_name ?? "Anonymous"}
-              {isAuthor && <span className="shrink-0" aria-label="마스터">👑</span>}
+              {post.profiles?.role === "admin" && (
+                <span
+                  className="ml-1 text-[11px] font-semibold text-black dark:text-white flex items-center gap-1"
+                  aria-label="관리자"
+                >
+                  💎 관리자
+                </span>
+              )}
             </p>
             <p className="text-xs text-muted-foreground">{timeAgo}</p>
           </div>
@@ -134,8 +147,8 @@ export function PostCard({ post, onUpdate }: PostCardProps) {
             {categoryInfo?.labelKo || post.category}
           </span>
 
-          {/* Actions Menu (Author Only) */}
-          {isAuthor && (
+          {/* Actions Menu (Author or Admin) */}
+          {(isAuthor || isAdminUser) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
