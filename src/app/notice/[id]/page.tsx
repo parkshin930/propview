@@ -320,7 +320,7 @@ export default function NoticeDetailPage() {
                           is_pinned: current.is_pinned,
                           user_id: user.id,
                           updated_at: new Date().toISOString(),
-                        } satisfies Partial<Notice> & { id: string; user_id: string };
+                        } satisfies Partial<Notice> & { id: number; user_id: string };
 
                         // (요청사항) 전송 직전 payload 로그
                         console.log(

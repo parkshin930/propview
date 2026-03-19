@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof next.credit === "undefined" && typeof next.credits === "number") {
       next.credit = next.credits;
     }
-    return next as Profile;
+    return next as unknown as Profile;
   }, []);
 
   // 프로필 가져오기

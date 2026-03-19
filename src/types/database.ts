@@ -8,14 +8,22 @@ export interface Profile {
   updated_at: string;
   /** 포인트(경험치). 누적 기준으로 등급 산정 */
   points?: number;
+  /** 구 스키마 호환용 포인트 컬럼 별칭 */
+  point?: number;
   /** 크레딧(화폐). 사용 가능 포인트 */
   credits?: number;
+  /** 구 스키마 호환용 크레딧 컬럼 별칭 */
+  credit?: number;
   /** 표시용 닉네임. 없으면 full_name 사용 */
   display_name?: string | null;
   /** 닉네임(display_name) 마지막 변경일 (ISO 문자열). 월 1회 제한용 */
   last_nickname_change_date?: string | null;
   /** 출금 인증 승인 시 true → 🔰 Verified Trader 배지 */
   is_verified?: boolean | null;
+  /** 구 스키마 호환용 인증 플래그 */
+  is_certified?: boolean | null;
+  /** 관리자 수동 등급 오버라이드 값 */
+  rank_override?: string | null;
   /** 누적 출금액 (USD). 승인된 출금 인증 금액 합산, 랭킹용 */
   total_withdrawal_amount?: number | null;
   /** 역할 기반 권한: 기본 'user', 최고 관리자는 'admin' */

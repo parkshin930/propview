@@ -122,7 +122,7 @@ export function Header() {
                       : "text-muted-foreground hover:text-foreground dark:text-white/70 dark:hover:text-white"
                   }`}
                 >
-                  {item.key === "economicCalendar" ? "경제 캘린더" : t(item.key)}
+                  {t(item.key)}
                   {isActive && (
                     <span
                       className="absolute left-0 right-0 top-full mt-1 h-0.5 rounded-full bg-[#2d9d78]"
@@ -158,7 +158,7 @@ export function Header() {
                         role="menuitem"
                       >
                         <Icon className={`h-5 w-5 shrink-0 ${item.iconColor}`} />
-                        {item.key === "economicCalendar" ? "경제 캘린더" : t(item.key)}
+                        {t(item.key)}
                       </Link>
                     );
                   })}
@@ -349,7 +349,7 @@ export function Header() {
                           onClick={() => setIsOpen(false)}
                         >
                           <Icon className={`h-5 w-5 shrink-0 ${item.iconColor}`} />
-                          {item.key === "economicCalendar" ? "경제 캘린더" : t(item.key)}
+                          {t(item.key)}
                         </Link>
                       );
                     })}

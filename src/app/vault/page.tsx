@@ -7,9 +7,16 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import { createClient } from "@/lib/supabase/client";
-import type { Database } from "@/types/database";
 
-type RewardLog = Database["public"]["Tables"]["reward_logs"]["Row"];
+type RewardLog = {
+  id: string;
+  user_id: string;
+  kind: string;
+  rank: number | null;
+  points: number;
+  credits: number;
+  created_at: string;
+};
 
 export default function VaultPage() {
   const { user } = useAuth();

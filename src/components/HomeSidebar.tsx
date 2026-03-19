@@ -70,7 +70,10 @@ export function HomeSidebar() {
   const starLabel = getStarLabel(points);
   const starIcons = getStarIcons(points);
   const isAdminUser = profile?.role === "admin";
-  const isCertified = !!(profile?.is_certified ?? profile?.is_verified);
+  const isCertified = !!(
+    (profile as (typeof profile & { is_certified?: boolean }) | null)?.is_certified ??
+    profile?.is_verified
+  );
   const [, setPointsTick] = useState(0);
   useEffect(() => {
     const onUpdate = () => setPointsTick((n) => n + 1);
@@ -116,7 +119,7 @@ export function HomeSidebar() {
             </Link>
             <Button
               variant="outline"
-              size="xs"
+              size="sm"
               className="h-7 rounded-full border-gray-200 px-3 text-[11px] dark:border-gray-600 dark:text-gray-100"
               onClick={() => signOut()}
             >

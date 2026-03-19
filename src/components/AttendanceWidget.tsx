@@ -212,7 +212,7 @@ export function AttendanceWidget() {
           주간 출석 체크
         </div>
         <Button
-          size="xs"
+          size="sm"
           variant="outline"
           disabled={!user || hasAttendedToday || loading}
           onClick={handleAttend}

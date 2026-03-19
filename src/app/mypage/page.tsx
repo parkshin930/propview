@@ -288,121 +288,6 @@ export default function MyPage() {
             </div>
           </div>
 
-          {/* 섹션 전환 */}
-          {activeSection === "activity" && (
-            <section className="mt-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 text-sm">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="inline-flex rounded-full border border-border bg-muted/40 p-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActivityTab("posts");
-                      setActivityPage(1);
-                    }}
-                    className={`px-4 py-1.5 rounded-full transition-colors ${
-                      activityTab === "posts"
-                        ? "bg-white text-foreground shadow-sm dark:bg-gray-900 dark:text-gray-100"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    내가 쓴 글
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActivityTab("comments");
-                      setActivityPage(1);
-                    }}
-                    className={`px-4 py-1.5 rounded-full transition-colors ${
-                      activityTab === "comments"
-                        ? "bg-white text-foreground shadow-sm dark:bg-gray-900 dark:text-gray-100"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    내 댓글
-                  </button>
-                </div>
-                {user && (
-                  <p className="text-xs text-muted-foreground dark:text-gray-400">
-                    총{" "}
-                    <span className="font-semibold text-foreground dark:text-gray-100">
-                      {activityTotal.toLocaleString()}
-                    </span>
-                    건
-                  </p>
-                )}
-              </div>
-
-              {!user ? (
-                <div className="mt-2 rounded-xl border border-dashed border-border bg-card/40 p-6 text-center text-sm text-muted-foreground">
-                  로그인 후 이용할 수 있습니다.
-                </div>
-              ) : activityLoading ? (
-                <div className="mt-2 rounded-xl border border-border bg-card/40 p-6 text-center text-sm text-muted-foreground">
-                  불러오는 중입니다...
-                </div>
-              ) : activityTab === "posts" ? (
-                <>
-                  {myPosts.length === 0 ? (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      아직 작성한 커뮤니티 글이 없습니다.
-                    </p>
-                  ) : (
-                    <ul className="mt-2 space-y-2">
-                      {myPosts.map((post) => (
-                        <li key={post.id}>
-                          <Link
-                            href={`/community/${post.id}`}
-                            className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-gray-700 dark:bg-gray-900"
-                          >
-                            <span className="truncate text-foreground dark:text-gray-100">
-                              {post.title}
-                            </span>
-                            <span className="shrink-0 text-[11px] text-muted-foreground">
-                              {new Date(post.created_at).toLocaleString()}
-                            </span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </>
-              ) : (
-                <>
-                  {myComments.length === 0 ? (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      아직 작성한 댓글이 없습니다.
-                    </p>
-                  ) : (
-                    <ul className="mt-2 space-y-2">
-                      {myComments.map((c) => (
-                        <li key={c.id}>
-                          <div className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                            <p className="truncate text-foreground dark:text-gray-100">
-                              {c.content}
-                            </p>
-                            <span className="shrink-0 text-[11px] text-muted-foreground">
-                              {new Date(c.created_at).toLocaleString()}
-                            </span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </>
-              )}
-
-              {user && (
-                <Pagination
-                  currentPage={activityPage}
-                  totalPages={activityTotalPages}
-                  onPageChange={setActivityPage}
-                  light
-                />
-              )}
-            </section>
-          )}
-
           {activeSection === "blocks" && (
             <section className="mt-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 text-sm">
               <h2 className="mb-3 text-base font-semibold text-foreground dark:text-gray-100">
@@ -425,7 +310,7 @@ export default function MyPage() {
                           "탈퇴한 유저"}
                       </span>
                       <Button
-                        size="xs"
+                        size="sm"
                         variant="outline"
                         className="h-7 px-2 text-xs"
                         onClick={() => handleUnblock(u.id)}
@@ -513,7 +398,7 @@ export default function MyPage() {
                     </p>
                     <div className="flex justify-end gap-2">
                       <Button
-                        size="xs"
+                        size="sm"
                         variant="outline"
                         className="h-7 px-2 text-[11px]"
                         onClick={() => setShowDeleteConfirm(false)}
@@ -522,7 +407,7 @@ export default function MyPage() {
                         취소
                       </Button>
                       <Button
-                        size="xs"
+                        size="sm"
                         className="h-7 px-2 text-[11px] bg-red-600 hover:bg-red-700"
                         onClick={handleDeleteAccount}
                         disabled={deletingAccount}

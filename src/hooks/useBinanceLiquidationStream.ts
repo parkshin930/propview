@@ -7,6 +7,18 @@ type StreamSums = {
   short: number;
 };
 
+type ForceOrderPayload = {
+  o?: {
+    s?: string;
+    S?: string;
+    p?: string;
+    ap?: string;
+    q?: string;
+    origQty?: string;
+    executedQty?: string;
+  };
+};
+
 const WS_URL = "wss://fstream.binance.com/ws/!forceOrder@arr";
 
 /**
@@ -38,15 +50,10 @@ export function useBinanceLiquidationStream(symbol: string, longBase: number, sh
         let shortDelta = 0;
 
         for (const item of arr) {
-          const o = (item && typeof item === "object" && "o" in item ? (item as any).o : item) as {
-            s?: string;
-            S?: string;
-            p?: string;
-            ap?: string;
-            q?: string;
-            origQty?: string;
-            executedQty?: string;
-          } | null;
+          const candidate = item as ForceOrderPayload | null;
+          const o = (candidate && typeof candidate === "object" && "o" in candidate
+            ? candidate.o
+            : candidate) as ForceOrderPayload["o"] | null;
           if (!o || o.s !== symbol) continue;
           const side = o.S;
           const price = parseFloat(o.p ?? o.ap ?? "0");

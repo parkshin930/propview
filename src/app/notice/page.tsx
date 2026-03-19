@@ -231,7 +231,7 @@ export default function NoticePage() {
                       <div className="flex items-center gap-1.5">
                         <span
                           className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
-                            item.type === "update"
+                            item.type === "업데이트"
                               ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
                               : "bg-gray-100 text-gray-800 dark:bg-gray-700/60 dark:text-gray-200"
                           }`}

@@ -44,7 +44,10 @@ export default function StrategyPage() {
   const supabase = createClient();
 
   const admin = isAdmin(user, profile);
-  const isCertified = !!(profile?.is_certified ?? profile?.is_verified);
+  const isCertified = !!(
+    (profile as (typeof profile & { is_certified?: boolean }) | null)?.is_certified ??
+    profile?.is_verified
+  );
   const canWrite = !!user && (admin || isCertified);
   const totalPages = Math.max(1, Math.ceil(totalCount / STRATEGY_PAGE_SIZE));
 
